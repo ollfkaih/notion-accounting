@@ -24,7 +24,6 @@ value_mapping = {
 
 load_dotenv()  # Use context manager
 notion = Client(auth=os.getenv('NOTION_KEY'))
-
 flight_data = get_mails(3)
 
 for mail in flight_data:
@@ -39,12 +38,12 @@ for mail in flight_data:
 
         # Get trend-arrow
         price_difference = trip.get("New Price", 0) - trip.get("Old Price", 0)
-        trend = next(({"id": find_operator(notion, trend_name)[0]}
-                      for trend_name, condition in trend_mapping.items() if condition(price_difference)), None)
+        trend = [next(({"id": find_operator(notion, trend_name)[0]}
+                      for trend_name, condition in trend_mapping.items() if condition(price_difference)), None)]
 
         # Get value indicator
-        value = next(({"id": find_operator(notion, value_name)[0]}
-                      for value_name, condition in value_mapping.items() if condition(trip.get("Value", ""))), None)
+        value = [next(({"id": find_operator(notion, value_name)[0]}
+                      for value_name, condition in value_mapping.items() if condition(trip.get("Value", ""))), None)]
 
         page = create_notion_page(
             journey=trip.get("Journey"),
