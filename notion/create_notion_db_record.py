@@ -11,7 +11,7 @@ from notion_client import Client
 # Load environment variable
 NOTION_DB_TRAVEL = os.getenv("NOTION_DB_TRAVEL")
 
-load_dotenv()
+# load_dotenv()
 
 
 def create_notion_db_record(notion: Client, page: dict) -> None:
@@ -33,7 +33,7 @@ def create_notion_db_record(notion: Client, page: dict) -> None:
     try:
         log(f"Sending page to Notion...", "success")
         notion.pages.create(
-            parent={"database_id": NOTION_DB_TRAVEL}, properties=page)
+            parent={"database_id": os.getenv("NOTION_DB_TRAVEL")}, properties=page)
     except Exception as e:
         log(f"Failed to create record: {e}", "danger")
 
