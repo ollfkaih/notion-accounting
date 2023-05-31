@@ -44,4 +44,17 @@ def find_destination(notion, text):
         if destination_name.lower() in text.lower():
             matching_destination_ids.append(destination["id"])
 
+    if len(matching_destination_ids) == 0:
+        # create new operator
+        new_page = notion.pages.create(
+            parent={"database_id": os.getenv("NOTION_DB_DESTINATION")},
+            properties={
+                "Name": {"title": [{"text": {"content": text}}]},
+            }
+        )
+
+        log("Created new destination", "success")
+        destroy_cache(os.getenv("NOTION_DB_DESTINATION"))
+        return [new_page.get("id")]
+
     return matching_destination_ids
