@@ -2,16 +2,12 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import os
 
-from dotenv import load_dotenv
-from notion.find_relation import find_operator
 from functions.console import log
 from notion.check_notion_db_record_exists import check_notion_db_record_exists
 from notion_client import Client
 
 # Load environment variable
 NOTION_DB_TRAVEL = os.getenv("NOTION_DB_TRAVEL")
-
-# load_dotenv()
 
 
 def create_notion_db_record(notion: Client, page: dict) -> None:

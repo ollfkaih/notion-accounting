@@ -1,6 +1,7 @@
 import os
+from functions.console import log
 
-from notion.cache import get_database_data
+from notion.cache import destroy_cache, get_database_data
 
 
 def find_operator(notion, text):
@@ -13,6 +14,21 @@ def find_operator(notion, text):
             operator_name = operator["properties"]["alias"]["rich_text"][0]["text"]["content"]
             if operator_name.lower() in text.lower():
                 matching_operator_ids.append(operator["id"])
+
+    if len(matching_operator_ids) == 0:
+        # create new operator
+        new_page = notion.pages.create(
+            parent={"database_id": os.getenv("NOTION_DB_OPERATOR")},
+            properties={
+                "Navn": {"title": [{"text": {"content": text}}]},
+                "alias": {"rich_text": [{"text": {"content": text}}]}
+            }
+        )
+
+        log("Created new operator", "success")
+        destroy_cache(os.getenv("NOTION_DB_OPERATOR"))
+        print(new_page.get("id"))
+        return [new_page.get("id")]
 
     return matching_operator_ids
 
@@ -27,5 +43,18 @@ def find_destination(notion, text):
         destination_name = destination["properties"]["Name"]["title"][0]["text"]["content"]
         if destination_name.lower() in text.lower():
             matching_destination_ids.append(destination["id"])
+
+    if len(matching_destination_ids) == 0:
+        # create new operator
+        new_page = notion.pages.create(
+            parent={"database_id": os.getenv("NOTION_DB_DESTINATION")},
+            properties={
+                "Name": {"title": [{"text": {"content": text}}]},
+            }
+        )
+
+        log("Created new destination", "success")
+        destroy_cache(os.getenv("NOTION_DB_DESTINATION"))
+        return [new_page.get("id")]
 
     return matching_destination_ids
