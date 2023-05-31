@@ -62,3 +62,20 @@ def get_database_data(notion: Client, database_id: str, filter_params=None) -> d
                 return cache[cache_key]
             # wait 1-5 seconds and try again
             time.sleep(int(time.time()) % 5 + 1)
+
+
+def destroy_cache(key: str):
+    """
+    Destroy the cache for a specific key.
+
+    Args:
+    key: The key to be destroyed.
+
+    Returns:
+    None
+    """
+    try:
+        del cache[key]
+        log(f"Cache destroyed: {key}", "warning")
+    except KeyError:
+        pass
