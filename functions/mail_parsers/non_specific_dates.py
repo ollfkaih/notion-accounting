@@ -2,94 +2,67 @@ import quopri
 import re
 from functions.create_flight_dict import create_flight_dict
 from functions.console import log
+from itertools import groupby
+from functions.get_html import get_data_from_html
 
 from functions.parse_date import parse_date
 
-
-def non_specific_dates(text):
-
-    text = text.split("<html", 1)[0]  # Remove HTML
-    text = text.split("Se flere flyreiser", 1)[0]  # Remove footer
-
-    # Remove header
-    text = text.split("Hei!", 1)[1]
-
-    text = text.split(">")
-    text = [s.replace('\r', '') for s in text]
-    text = [s.replace('\n', '') for s in text]
-
-    text = [element for element in text if element.strip()
-            != "Direkte"]
-
-    text = [element for element in text if element.strip()
-            != "Billigst"]
-
-    info = text[1:4]
-    trips = text[4:]
-    prices = []
-
-    new_trips = []
-
-    # Step by 5 because there are 4 elements and an empty string after every group
-    for i in range(0, len(trips), 5):
-        if "Akkurat nå er prisene" in trips[i] or "er en" in trips[i+1]:
-            break
-        group = trips[i:i+4]  # Get the next four elements
-        new_trips.append(group)
-
-    new_trips = [[s.replace('\xa0', ' ') for s in sublist]
-                 for sublist in new_trips]
-
-    for e in new_trips:
-        e[0] = parse_date(e[0][1:])
-        e[1] = e[1].split("Fra ")[1]
-        e[1] = ''.join(char for char in e[1] if char.isdigit())
-        e[1] = int(e[1])
-        e[3] = e[3].split(" · ")
-        e[3][0] = e[3][0].split(", ")
-        del e[2]
-
-    flag = False
-    for element in trips:
-        if "Akkurat nå er prisene" in element:
-            flag = True
-
-        if flag:
-            prices.append(element)
-
-    prices = [value for value in prices if value != '']
-    prices = [s.replace('\xa0', ' ') for s in prices]
-    prices = prices[2:4]
-    prices = [re.findall(r'\d+', s.replace(' ', ''))
-              for s in prices]
-    prices = [item for sublist in prices for item in sublist]
-    prices = [int(num) for num in prices]
-
-    dict_list = []
-    for flight in new_trips:
-        new_dict_entry = create_flight_dict(
-            journey=info[0].split("fra ")[1] + info[1],
-            start=flight[0][0],
-            end=flight[0][1],
-            cabin=info[2].split(" · ")[3],
-            new_price=flight[1],
-            old_price=flight[1],
-            duration=flight[2][3],
-            airlines=flight[2][0],
-            stops=flight[2][1],
-            route=flight[2][2],
-            type="Non specific",
-            value=value(flight[1], prices)
-        )
-        dict_list.append(new_dict_entry)
-
-    return dict_list
+from bs4 import BeautifulSoup
 
 
-def value(price: int, priceStats: list[int]):
-    if price < priceStats[0]:
+def non_specific_dates(text: str, route: str):
+
+    # print dates with enumeration
+    # for i in range(len(text)):
+    #     print(i, text[i])
+
+    journey = route
+
+    metadata = text[0].split(" ·")
+    cabin = metadata[-1]
+    type = metadata[0].split(" ")[0]
+
+    value = text[-1].split("kr")[1:]
+    value = [int(i) for i in value]
+
+    # remove first and last element
+    text = text[1:-1]
+
+    # loop through three elements at a time
+    flight_list_dict = []
+    for i in range(0, len(text), 3):
+        date = parse_date(text[i])
+        if "SPAR" in text[i+1]:
+            text[i+1] = text[i+1][text[i+1].index("F"):]
+        price = int(text[i+1][6:])
+        info = text[i+2].split(' ·')
+        airlines = info[0].split(',')
+        stops = info[1]
+        route = info[2]
+        duration = info[3]
+
+        flight_list_dict.append(create_flight_dict(
+            journey=journey,
+            start=date[0],
+            end=date[1],
+            cabin=cabin,
+            new_price=price,
+            old_price=price,
+            duration=info[3],
+            airlines=info[0].split(','),
+            stops=info[1],
+            route=info[2],
+            type=type,
+            value=get_value(price, value)
+        ))
+
+    return flight_list_dict
+
+
+def get_value(price: int, prices: list):
+    if price < prices[0]:
         return "Cheap"
-    elif price < priceStats[1]:
+    elif price < prices[1]:
         return "Average"
     else:
         return "Expensive"

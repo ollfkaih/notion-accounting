@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from notion_client import Client
+from functions.console import log
 
 from functions.get_mails import get_mails
 from notion.create_notion_db_record import create_notion_db_record
@@ -24,15 +25,22 @@ value_mapping = {
 
 load_dotenv()  # Use context manager
 notion = Client(auth=os.getenv('NOTION_KEY'))
-flight_data = get_mails(3)
+flight_data = get_mails(11)
+
+if not flight_data:
+    log("No emails found", "danger")
 
 for mail in flight_data:
+
+    if not mail:
+        log("No emails found", "danger")
+        continue
 
     for trip in mail:
         operators = [{"id": operator} for airline in trip.get("Airlines", [])
                      for operator in find_operator(notion, airline) or []]
 
-        destination_name = trip.get("Journey", "").split(" ")[2]
+        destination_name = trip.get("Journey").split(" til ")[1]
         destinations = [{"id": dest}
                         for dest in find_destination(notion, destination_name) or []]
 

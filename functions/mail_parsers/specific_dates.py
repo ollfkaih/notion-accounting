@@ -1,65 +1,66 @@
 import quopri
+import re
+from functions.create_flight_dict import create_flight_dict
 
 from functions.parse_date import parse_date
 
 
 def specific_dates(text):
-    text = text.split("<html", 1)[0]
-    text = text.split("Prisene ble oppdatert", 1)[0]
-    text = text.split("destinasjoner og datoer:", 1)[1]
-    text = text.split("Vis alle flyreisene")
 
-    parsed_data = []
-    for e in text:
-        e = e.split("\n")
+    # for i in range(len(text)):
+    #     print(i, text[i])
 
-        e = [element.replace('> ', '').replace(
-            '>', '') for element in e if element.replace('> ', '').replace('>', '')]
+    flight_list_dict = []
+    for i in range(0, len(text), 4):
 
-        e = [element.replace('\r\n', '').replace(
-            '\xa0', '') for element in e]
+        metadata = text[i].split(" ·")
+        old_price = int(metadata[-1].split("kr")[-1])
+        datearr = metadata[0].split(".")
+        journey = datearr[0][0:-3]
+        date = datearr[0][-3:] + "." + datearr[1] + \
+            "." + datearr[2] + "." + datearr[3] + "." + \
+            datearr[4].replace("Tur/retur", "")
 
-        e = [item.strip() for item in e if item.strip()]
+        if len(date) < len("ons. 2. apr.-ons. 2. sep."):
+            date = datearr[0][-3:] + "." + datearr[1] + \
+                "." + datearr[2] + "." + datearr[3] + "." + \
+                datearr[4] + "." + datearr[5] + "."
 
-        if len(e) == 0:
-            continue
+        # ons. 2. apr.-ons. 2. sep.
+        date = parse_date(date)
 
-        destination = e[0]
-        dates = parse_date(e[1])
-        oldPrice = int(e[4][2:].replace(">", ""))
-        e = e[5:]
+        # loop three times
+        for j in range(3):
+            flight = text[i+j+1]
 
-        # make every third element a new list
-        e = [e[i:i + 3] for i in range(0, len(e), 3)]
+            hours = None
+            if flight[13:15] == "+1":
+                hours = flight[0:15]
+                flight = flight[15:]
 
-        parsed_data.append([destination, dates, oldPrice, e])
+            else:
+                hours = flight[0:13]
+                flight = flight[13:]
 
-    flights_dict = []
-    for destination in parsed_data:
+            flight = flight.split(" ·")
 
-        destination_name = destination[0]
-        dates = destination[1]
-        oldPrice = destination[2]
+            airlines = flight[0].split(", ")
+            stops = flight[1]
+            route, price = flight[2].split("kr")
 
-        for flight in destination[3]:
+            flight_list_dict.append(create_flight_dict(
+                journey=journey,
+                start=date[0],
+                end=date[1],
+                cabin="Unknown",
+                new_price=int(price),
+                old_price=old_price,
+                duration=hours,
+                airlines=airlines,
+                stops=stops,
+                route=route,
+                type="Specific",
+                value="Unknown"
+            ))
 
-            airline_info = flight[1].split(' · ')
-            airlines = airline_info[0].split(", ")
-
-            flight_dict = {
-                "Journey": destination_name,
-                "Start Date": dates[0],
-                "End Date": dates[1],
-                "Ticket Info": "unknown",
-                "New Price": int(flight[2][2:].replace(">", "")),
-                "Old Price": int(oldPrice),
-                "Duration": "Unknown",
-                "Airlines": airlines,
-                "Stops": airline_info[1],
-                "Route": airline_info[2],
-                "Type": "Specific",
-                "Value": "Unknown",
-                "Cabin": "Unknown",
-            }
-            flights_dict.append(flight_dict)
-    return flights_dict
+    return flight_list_dict
