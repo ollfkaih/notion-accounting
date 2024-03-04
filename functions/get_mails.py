@@ -1,25 +1,101 @@
 import datetime
-import email
 import imaplib
 import os
-import quopri
-from contextlib import closing
 from email.header import decode_header
-
+import email
+import re
+import quopri
 from dateutil.parser import parse
-
 from functions.console import log
 from functions.get_html import get_data_from_html
 from functions.mail_parsers.non_specific_dates import non_specific_dates
 from functions.mail_parsers.specific_dates import specific_dates
+from contextlib import closing
+
 from functions.parse_date import parse_date
+from typing import TypedDict, Optional
+
+
+class RequiredTransactionDetails(TypedDict):
+    name: str
+    date_time: str
+    cardholder_name: str
+    bank_name: str
+    card_number: str
+    location: str
+    foreign: bool
+
+
+# Define another TypedDict for optional transaction details
+class OptionalTransactionDetails(TypedDict, total=False):
+    amount_nok: Optional[float]
+    amount_try: Optional[float]
+    amount_eur: Optional[float]
+    amount_usd: Optional[float]
+    amount_gbp: Optional[float]
+    transaction_description: Optional[str]
+
+
+# Combine the two using multiple inheritance
+class TransactionDetails(RequiredTransactionDetails, OptionalTransactionDetails):
+    pass
+
 
 TEXT_PLAIN = "text/plain"
-SUBJECT_LINE = "Subject"
-SPECIFIC_ROUTE = "ruten du sporer"
 
 
-def get_mails(number: int):
+def get_details(text: str) -> TransactionDetails:
+    # Define patterns for extracting information
+    patterns = {
+        "name": r"Hello\s+(\w+),",
+        "location": r"at:\s*\n\s*(.+)\n",
+        "amount_nok": r"(\d+\.\d+)\s+NOK",
+        "amount_try": r"(\d+\.\d+)\s+TRY",
+        "amount_eur": r"€(\d+\.\d+)\s",
+        "amount_usd": r"\$(\d+\.\d+)\s",
+        "amount_gbp": r"£(\d+\.\d+)\s",
+        "date_time": r"(\d{2} \w+ \d{4} \d{2}:\d{2}:\d{2})",
+        "cardholder_name": r"On this card:\s*\n\s*(.+)\n",
+        "bank_name": r"\n\s*(\w+ Bank)\n",
+        "card_number": r"XXXX-(\d+)",
+        "transaction_description": r"appear on your bank statement as:\s*\n\s*(.+)\n",
+    }
+
+    extracted_data = {}
+    for key, pattern in patterns.items():
+        match = re.search(pattern, text, re.MULTILINE)
+        if match:
+            extracted_data[key] = match.group(1).strip()
+
+    if "card_number" in extracted_data:
+        extracted_data["card_number"] = int(extracted_data["card_number"])
+    if "amount_nok" in extracted_data:
+        extracted_data["amount_nok"] = float(extracted_data["amount_nok"])
+    if "amount_try" in extracted_data:
+        extracted_data["amount_try"] = float(extracted_data["amount_try"])
+    if "amount_eur" in extracted_data:
+        extracted_data["amount_eur"] = float(extracted_data["amount_eur"])
+    if "amount_usd" in extracted_data:
+        extracted_data["amount_usd"] = float(extracted_data["amount_usd"])
+    if "amount_gbp" in extracted_data:
+        extracted_data["amount_gbp"] = float(extracted_data["amount_gbp"])
+    extracted_data["foreign"] = (
+        "amount_try" in extracted_data
+        or "amount_eur" in extracted_data
+        or "amount_usd" in extracted_data
+        or "amount_gbp" in extracted_data
+    )
+
+    return extracted_data
+
+
+# Example usage:
+# Replace 'your_email_receipt_text_here' with your actual email receipt text.
+# data = "your_email_receipt_text_here"
+# extracted_vars = extract_data(data
+
+
+def get_mails(number: int) -> list[TransactionDetails]:
     """
     This function connects to an email server, retrieves the last three emails, and parses their content.
 
@@ -32,15 +108,16 @@ def get_mails(number: int):
     try:
         with closing(imaplib.IMAP4_SSL(os.getenv("EMAIL_IMAP"))) as mail:
             rv, data = mail.login(
-                os.getenv("EMAIL_USERNAME"), os.getenv("EMAIL_PASSWORD"))
-            if rv != 'OK':
+                os.getenv("EMAIL_USERNAME"), os.getenv("EMAIL_PASSWORD")
+            )
+            if rv != "OK":
                 log("Unable to log in to email server", "danger")
                 return None
 
             mail.select("INBOX")
 
             # Get the list of email IDs
-            result, data = mail.uid('search', None, "ALL")
+            result, data = mail.uid("search", None, "ALL")
             email_ids = data[0].split()
 
             # Get the latest three email IDs
@@ -49,8 +126,7 @@ def get_mails(number: int):
             # Parse the emails
             parsed_data = []
             for email_id in reversed(latest_email_ids):
-                result, email_data = mail.uid(
-                    'fetch', email_id, '(BODY[TEXT])')
+                result, email_data = mail.uid("fetch", email_id, "(BODY[TEXT])")
                 raw_email = email_data[0][1].decode("utf-8")
 
                 # Parse the raw email
@@ -64,52 +140,9 @@ def get_mails(number: int):
                         if byte_code:
                             decoded_bytes = quopri.decodestring(byte_code)
                             email_text_content = decoded_bytes.decode("utf-8")
-
-                            # Extract HTML content from the string
-                            start_html = email_text_content.find('<html')
-                            end_html = email_text_content.rfind('</html>')
-                            if start_html != -1 and end_html != -1:
-                                html_content = email_text_content[start_html:end_html + 7]
-                                html_data = get_data_from_html(
-                                    html_content, "tr")
-
-                                route = find_words_around_til(html_content)
-
-                                if "Prisene er endret for følgende destinasjoner" in html_content:
-                                    log("specific dates", "warning")
-                                    parsed_data.append(
-                                        specific_dates(html_data))
-                                elif "Vi har funnet" in html_content:
-                                    log("non-specific dates", "warning")
-                                    parsed_data.append(
-                                        non_specific_dates(html_data, route))
-                                else:
-                                    log("unknown email type", "danger")
-
+                            parsed_data.append(get_details(email_text_content))
             return parsed_data
 
-    except imaplib.IMAP4.error as error:
-        log(f"An error occurred: {error}", "danger")
+    except imaplib.IMAP4.error as e:
+        log(f"An error occurred: {e}", "danger")
         return None
-
-
-def find_words_around_til(text):
-    words = text.split()
-    stop_words = ["class", "</div>", ".", "i januar", "i februar", "i mars", "i april", "i mai",
-                  "i juni", "i juli", "i august", "i september", "i oktober", "i november", "i desember"]
-    if 'til' in words:
-        til_index = words.index('til')
-        word_before = words[til_index - 1] if til_index > 0 else None
-        words_after = []
-        for word in words[til_index + 1:]:
-            if any(stop_word in word for stop_word in stop_words):
-                # Find the position of the stop word in the word
-                stop_word_index = min(word.find(stop_word)
-                                      for stop_word in stop_words if stop_word in word)
-                words_after.append(word[:stop_word_index])
-                break
-            words_after.append(word)
-
-        return (word_before + " til " + ' '.join(words_after)).split(" i ")[0]
-    else:
-        return None, None
