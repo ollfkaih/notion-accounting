@@ -10,7 +10,7 @@ from notion_client import Client
 NOTION_DB_TRANSACTIONS = os.getenv("NOTION_DB_TRANSACTIONS")
 
 
-def create_notion_db_record(notion: Client, page: dict) -> None:
+def create_notion_db_record(notion: Client, page: dict) -> bool:
     """
     Create a new Notion database record.
 
@@ -24,15 +24,17 @@ def create_notion_db_record(notion: Client, page: dict) -> None:
     # check if page already exists in Notion
     if check_notion_db_record_exists(notion, page):
         log("duplicate, skipping...", "warning")
-        return
+        return True
 
     try:
         log(f"Sending page to Notion...", "success")
         notion.pages.create(
             parent={"database_id": os.getenv("NOTION_DB_TRANSACTIONS")}, properties=page
         )
+        return True
     except Exception as e:
         log(f"Failed to create record: {e}", "danger")
+        return False
 
 
 executor = ThreadPoolExecutor(max_workers=1)

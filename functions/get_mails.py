@@ -125,6 +125,7 @@ def get_mails(number: int) -> list[TransactionDetails]:
 
             # Parse the emails
             parsed_data = []
+            email_uids = []
             for email_id in reversed(latest_email_ids):
                 result, email_data = mail.uid("fetch", email_id, "(BODY[TEXT])")
                 raw_email = email_data[0][1].decode("utf-8")
@@ -140,9 +141,44 @@ def get_mails(number: int) -> list[TransactionDetails]:
                         if byte_code:
                             decoded_bytes = quopri.decodestring(byte_code)
                             email_text_content = decoded_bytes.decode("utf-8")
-                            parsed_data.append(get_details(email_text_content))
+                            transaction_details = get_details(email_text_content)
+                            transaction_details["uid"] = email_id.decode("utf-8")
+                            parsed_data.append(transaction_details)
             return parsed_data
 
+    except imaplib.IMAP4.error as e:
+        log(f"An error occurred: {e}", "danger")
+        return None
+
+
+def archive_email(uid: str) -> None:
+    """
+    This function archives an email by moving it to the 'Archived' folder.
+
+    Args:
+    uid: str, the unique identifier of the email to be archived.
+
+    Returns:
+    None
+    """
+    try:
+        with closing(imaplib.IMAP4_SSL(os.getenv("EMAIL_IMAP"))) as mail:
+            rv, data = mail.login(
+                os.getenv("EMAIL_USERNAME"), os.getenv("EMAIL_PASSWORD")
+            )
+            if rv != "OK":
+                log("Unable to log in to email server", "danger")
+                return None
+
+            mail.select("INBOX")
+
+            # Get the list of email IDs
+            result, data = mail.uid("search", None, f"UID {uid}")
+            email_ids = data[0].split()
+
+            # Move the email to the 'Archived' folder
+            mail.uid("store", uid, "+FLAGS", "\\Deleted")
+            mail.expunge()
     except imaplib.IMAP4.error as e:
         log(f"An error occurred: {e}", "danger")
         return None
