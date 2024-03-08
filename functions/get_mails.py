@@ -42,6 +42,7 @@ class TransactionDetails(RequiredTransactionDetails, OptionalTransactionDetails)
 
 
 TEXT_PLAIN = "text/plain"
+SUBJECT_FILTER = "Curve Receipt"
 
 
 def get_details(text: str) -> TransactionDetails:
@@ -130,6 +131,10 @@ def get_mails(number: int) -> list[TransactionDetails]:
                 result, email_data = mail.uid("fetch", email_id, "(BODY[TEXT])")
                 raw_email = email_data[0][1].decode("utf-8")
 
+                if SUBJECT_FILTER not in raw_email:
+                    mark_as_unread(email_id.decode("utf-8"))
+                    continue
+
                 # Parse the raw email
                 email_message = email.message_from_string(raw_email)
 
@@ -173,12 +178,48 @@ def archive_email(uid: str) -> None:
             mail.select("INBOX")
 
             # Get the list of email IDs
+            result = mail.uid("search", None, f"UID {uid}")
+
+            # Copy the email to the 'Archived' folder
+            result, _ = mail.uid("COPY", uid, "Archive")
+            print("RESULT", result)
+
+            # If the copy was successful, delete the original email
+            if result == "OK":
+                mail.uid("store", uid, "+FLAGS", "\\Deleted")
+                mail.expunge()
+    except imaplib.IMAP4.error as e:
+        log(f"An error occurred: {e}", "danger")
+        return None
+
+
+def mark_as_unread(uid: str) -> None:
+    """
+    This function marks an email as unread.
+
+    Args:
+    uid: str, the unique identifier of the email to be marked as unread.
+
+    Returns:
+    None
+    """
+    try:
+        with closing(imaplib.IMAP4_SSL(os.getenv("EMAIL_IMAP"))) as mail:
+            rv, data = mail.login(
+                os.getenv("EMAIL_USERNAME"), os.getenv("EMAIL_PASSWORD")
+            )
+            if rv != "OK":
+                log("Unable to log in to email server", "danger")
+                return None
+
+            mail.select("INBOX")
+
+            # Get the list of email IDs
             result, data = mail.uid("search", None, f"UID {uid}")
             email_ids = data[0].split()
 
-            # Move the email to the 'Archived' folder
-            mail.uid("store", uid, "+FLAGS", "\\Deleted")
-            mail.expunge()
+            # Mark the email as unread
+            mail.uid("store", uid, "-FLAGS", "\\Seen")
     except imaplib.IMAP4.error as e:
         log(f"An error occurred: {e}", "danger")
         return None

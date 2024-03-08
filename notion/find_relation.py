@@ -11,6 +11,8 @@ def find_operator(notion, text) -> list:
         "results"
     )
 
+    print("Operators", operators)
+
     matching_operator_ids = []
 
     for operator in operators:
