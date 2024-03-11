@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from notion_client import Client
 from functions.console import log
 
-from functions.get_mails import archive_email, get_mails
+from functions.get_mails import archive_email, get_mails, mark_as_unread
 from notion.create_notion_db_record import create_notion_db_record
 from notion.create_notion_page import create_notion_page
 from notion.find_relation import find_operator
@@ -32,6 +32,7 @@ for transaction in transaction_data:
     page = create_notion_page(notion, transaction)
 
     if create_notion_db_record(notion, page):
-        archive_email(transaction.get("uid"))
+        # archive_email(transaction.get("uid"))
+        pass
     else:
         mark_as_unread(transaction.get("uid"))
