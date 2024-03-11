@@ -32,7 +32,6 @@ for transaction in transaction_data:
     page = create_notion_page(notion, transaction)
 
     if create_notion_db_record(notion, page):
-        # archive_email(transaction.get("uid"))
-        pass
+        archive_email(transaction.get("uid"))
     else:
         mark_as_unread(transaction.get("uid"))
