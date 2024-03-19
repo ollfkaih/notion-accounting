@@ -182,7 +182,6 @@ def archive_email(uid: str) -> None:
 
             # Copy the email to the 'Archived' folder
             result, _ = mail.uid("COPY", uid, "Archive")
-            print("RESULT", result)
 
             # If the copy was successful, delete the original email
             if result == "OK":
