@@ -18,8 +18,8 @@ def create_notion_page(notion, data: TransactionDetails) -> dict:
         "Dato": {
             "date": {
                 "start": datetime.strptime(data.get("date_time"), "%d %B %Y %H:%M:%S")
-                .replace(tzinfo=timezone(timedelta(hours=1)))
-                .isoformat()  # time zone is GMT+1
+                # .replace(tzinfo=timezone(timedelta(hours=1))) # time zone is correct for purchase location, no adjustment needed
+                .isoformat()
             },
         },
         "Beløp": {
