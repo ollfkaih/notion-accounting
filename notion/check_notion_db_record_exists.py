@@ -21,30 +21,38 @@ def check_notion_db_record_exists(notion, page) -> bool:
     for page_record in data["results"]:
 
         page_record_date = page_record["properties"]["Dato"]["date"]["start"]
-        page_record_time = page_record_date.split("T")[1]
-        page_record_date = page_record_date.split("T")[0]
-        page_record_hours_minutes = page_record_time.split(":")[0:2]
 
-        page_record_price = page_record["properties"]["Beløp"]["number"]
-        page_record_merchant = page_record["properties"]["Beskrivelse"]["title"][0][
-            "text"
-        ]["content"]
+        try:
+            page_record_time = page_record_date.split("T")[1]
+            page_record_date = page_record_date.split("T")[0]
+            page_record_hours_minutes = page_record_time.split(":")[0:2]
 
-        page_date = page["Dato"]["date"]["start"]
-        page_time = page_date.split("T")[1]
-        page_date = page_date.split("T")[0]
-        page_hours_minutes = page_time.split(":")[0:2]
+            page_record_price = page_record["properties"]["Beløp"]["number"]
+            page_record_merchant = page_record["properties"]["Beskrivelse"]["title"][0][
+                "text"
+            ]["content"]
 
-        page_price = page["Beløp"]["number"]
-        page_merchant = page["Beskrivelse"]["title"][0]["text"]["content"]
+            page_date = page["Dato"]["date"]["start"]
+            page_time = page_date.split("T")[1]
+            page_date = page_date.split("T")[0]
+            page_hours_minutes = page_time.split(":")[0:2]
 
-        identical_date = page_date == page_record_date
-        identical_time = page_hours_minutes == page_record_hours_minutes
-        identical_price = page_price == page_record_price
-        identical_merchant = page_merchant == page_record_merchant
+            page_price = page["Beløp"]["number"]
+            page_merchant = page["Beskrivelse"]["title"][0]["text"]["content"]
 
-        if identical_date and identical_time and identical_price and identical_merchant:
-            existing_record = True
-            break
+            identical_date = page_date == page_record_date
+            identical_time = page_hours_minutes == page_record_hours_minutes
+            identical_price = page_price == page_record_price
+            identical_merchant = page_merchant == page_record_merchant
+
+            if identical_date and identical_time and identical_price and identical_merchant:
+                existing_record = True
+                break
+        except:
+            # there was an entry without proper date, so we ignore it
+            log(page_record["properties"]["Beskrivelse"][title][0]["text"]["content"] + " is missing date")
+            pass
+
+
 
     return existing_record

@@ -1,14 +1,10 @@
-# Notion Google Flights
+# Notion Accounting
 
 ## Description
 
-This program parses emails from Google Flight Alerts and creates a Notion database record with the contents.
+Parses curve transactions and puts them in a notion db 
 
-Useful for tracking flight prices and getting a sense of how they change over time.
-
-To be used in combination with the corresponding notion Template for easy setup.
-
-## Setup
+## Setup (outdated)
 
 First create a mail account for the program to use, and then forward all emails from Google Flights to it automatically.
 
